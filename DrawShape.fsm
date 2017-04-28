@@ -1,0 +1,72 @@
+
+from cozmo_fsm import *
+from Drawer2 import *
+from cozmo.util import *
+import math
+
+# length in mm
+LEN_COZMO = 85
+
+class GetLines(StateNode):
+    def start(self, event = None):
+        super().start()
+        #self.post_data(Drawer().getLines())
+        lines = ([
+            (125,-25, False), (125, -125, True),
+            (25, -125, True), (25, -25, True)
+        ])
+        (xpos, ypos, heading) = (0,0,0)
+
+        moves = []
+        for (x, y, isLine) in lines:
+            (dx, dy) = (x - xpos, y - ypos)
+            dist = math.sqrt(dx**2 + dy**2)
+            q = wrap_angle(-heading + math.atan2(dy, dx))
+            (xpos, ypos) = (x,y)
+            heading += q
+            moves.append((dist, q, isLine))
+        self.post_data(moves)
+
+class DrawingLine(StateNode):
+    def start(self, event = None):
+        super().start()
+        if (self.parent.isLine):
+            self.post_success()
+        else:
+            self.post_failure()
+
+class DoTurn(Turn):
+    def start(self, event=None):
+        self.angle = radians(self.parent.q)
+        print("Turning by: ", self.angle)
+        super().start()
+
+class PostData(StateNode):
+    def start(self, event=None):
+        super().start()
+        (self.parent.dist, self.parent.q, self.parent.isLine) = event.data
+        self.post_completion()
+
+class DoMove(Forward):
+    def start(self, event=None):
+        print("Moving by: ", self.parent.dist)
+        self.distance = distance_mm(self.parent.dist)
+        super().start()
+
+class DrawShape(StateMachineProgram):
+
+    $setup {
+        SetLiftHeight(1)=C=>GetLines()=D=>draw_lines
+        draw_lines: Iterate()=D=> PostData() =C=> Forward(LEN_COZMO/2)
+            =C=> DoTurn()
+            =C=> Forward(-LEN_COZMO/2)
+            =C=> drawing_line
+
+        drawing_line: DrawingLine()
+        drawing_line =S=> SetLiftHeight(0) =C=> do_rest
+        drawing_line =F=> do_rest
+
+        do_rest: DoMove()=C=>SetLiftHeight(1)=CNext=>draw_lines
+
+    }
+
