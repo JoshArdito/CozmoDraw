@@ -109,10 +109,10 @@ class Drawer:
                     self.image, self.refPt[0], self.refPt[1], (0, 255, 0), 2
                 )
                 self.lines.append(self.refPt)
-                self.refPt = []
+            self.refPt = []
             badStart = False
 
-        elif event == cv2.EVENT_RBUTTONDOWN:
+        elif event == cv2.EVENT_MBUTTONDOWN:
             self.done = True
 
         cv2.imshow(IMG_WIN, self.image)
