@@ -1,3 +1,3 @@
-from Drawer2 import *
+from Drawer import *
 
 print(Drawer().getLines(wait=True))

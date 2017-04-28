@@ -1,6 +1,6 @@
 
 from cozmo_fsm import *
-from Drawer2 import *
+from Drawer import *
 from cozmo.util import *
 import math
 
