@@ -7,33 +7,27 @@ import math
 # length in mm
 LEN_COZMO = 85
 
-class GetLines(StateNode):
+class GetShapes(StateNode):
     def start(self, event = None):
         super().start()
-        #self.post_data(Drawer().getLines())
-        lines = ([
-            (125,-25, False), (125, -125, True),
-            (25, -125, True), (25, -25, True)
-        ])
+        shapes = Drawer().getShapes()
         (xpos, ypos, heading) = (0,0,0)
 
         moves = []
-        for (x, y, isLine) in lines:
-            (dx, dy) = (x - xpos, y - ypos)
-            dist = math.sqrt(dx**2 + dy**2)
-            q = wrap_angle(-heading + math.atan2(dy, dx))
-            (xpos, ypos) = (x,y)
-            heading += q
-            moves.append((dist, q, isLine))
+        for (x, y, shape) in shapes:
+            if (shape != SHAPE_CIRCLE):
+                (dx, dy) = (x - xpos, y - ypos)
+                dist = math.sqrt(dx**2 + dy**2)
+                q = wrap_angle(-heading + math.atan2(dy, dx))
+                (xpos, ypos) = (x,y)
+                heading += q
+                moves.append((dist, q, shape))
         self.post_data(moves)
 
-class DrawingLine(StateNode):
+class ShapeToDraw(StateNode):
     def start(self, event = None):
         super().start()
-        if (self.parent.isLine):
-            self.post_success()
-        else:
-            self.post_failure()
+        self.post_data(self.parent.shape)
 
 class DoTurn(Turn):
     def start(self, event=None):
@@ -44,7 +38,7 @@ class DoTurn(Turn):
 class PostData(StateNode):
     def start(self, event=None):
         super().start()
-        (self.parent.dist, self.parent.q, self.parent.isLine) = event.data
+        (self.parent.dist, self.parent.q, self.parent.shape) = event.data
         self.post_completion()
 
 class DoMove(Forward):
@@ -56,17 +50,19 @@ class DoMove(Forward):
 class DrawShape(StateMachineProgram):
 
     $setup {
-        SetLiftHeight(1)=C=>GetLines()=D=>draw_lines
-        draw_lines: Iterate()=D=> PostData() =C=> Forward(LEN_COZMO/2)
+        SetLiftHeight(1)=C=>GetShapes()=D=>draw_shapes=C=>AnimationNode('MajorWin')
+
+        draw_shapes: Iterate()=D=> PostData() =C=> Forward(LEN_COZMO/2)
             =C=> DoTurn()
             =C=> Forward(-LEN_COZMO/2)
-            =C=> drawing_line
+            =C=> shape_to_draw
 
-        drawing_line: DrawingLine()
-        drawing_line =S=> SetLiftHeight(0) =C=> do_rest
-        drawing_line =F=> do_rest
-
-        do_rest: DoMove()=C=>SetLiftHeight(1)=CNext=>draw_lines
+        shape_to_draw: ShapeToDraw()
+        shape_to_draw =D(SHAPE_LINE)=> SetLiftHeight(0) =C=> drive_line
+        shape_to_draw =D(SHAPE_NONE)=> drive_line
+        shape_to_draw =D(SHAPE_CIRCLE)=>
+            Say("Circle not implemented") =CNext=> draw_shapes
+        drive_line: DoMove()=C=>SetLiftHeight(1)=CNext=>draw_shapes
 
     }
 
